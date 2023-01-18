@@ -1,0 +1,82 @@
+version: "3"
+
+services:
+  express:
+    build: 
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: express-container
+    hostname: express-server
+    tty: true
+    environment:
+      - NODE_ENV=DEVELOPMENT
+      - PORT=3001
+    volumes:
+      - ./backend/app:/usr/src/app
+      - react-data:/usr/src/app/node_modules
+    ports:
+      - 3001:3001
+    working_dir: /usr/src/app
+    # 以下行は2回目以降も修正なしで使用可
+    command: sh -c "yarn install && npm install express --save && yarn global add nodemon && nodemon app.js"
+
+  react:
+    build: 
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    container_name: react-container
+    hostname: react-server
+    tty: true
+    environment:
+      - NODE_ENV=DEVELOPMENT
+      - PORT=3000
+    volumes:
+      - ./frontend/app:/usr/src/app
+      - react-data:/usr/src/app/node_modules
+    ports:
+      - 3000:3000
+    working_dir: /usr/src/app
+    # 初回のみcommand:を以下に置き換えて実行する必要があります
+    # command: sh -c "npm install -g create-react-app && create-react-app myapp && cd myapp && yarn start"
+    command: sh -c "cd myapp && yarn start"
+
+  mysql:
+    build:
+      context: .
+      dockerfile: ./database/Dockerfile
+    container_name: mysql-container
+    hostname: mysql-server
+    platform: linux/x86_64
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./database/mysql/sql/create_db.sql:/docker-entrypoint-initdb.d/create_db.sql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      TZ: Japan
+    ports:
+      - 3306:3306
+    restart: always
+
+volumes:
+  mysql-data:
+    name: db-data
+  express-data:
+    name: express-data
+  react-data:
+    name: react-data
+
+networks:
+  front-back-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.10.0/24
+  back-db-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.10.0/24
